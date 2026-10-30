@@ -1,47 +1,107 @@
+
 #include "initialization.hpp"
+
 #include <vulkan/vulkan.h>
+#include <GLFW/glfw3.h>
+
 #include <rhi/initialization.hpp>
+#include "rhi/src/vulkan/instance.hpp"
+#include "validation_layers.hpp"
 
-namespace rhi
-{
-    static VkInstance instance = VK_NULL_HANDLE;
+#include <vector>
+#include <cstring>
+#include <iostream>
 
-    Result initialize_vulkan()
-    {
-        VkApplicationInfo app_info{};
-        app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        app_info.pApplicationName = "Renderer";
-        app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-        app_info.pEngineName = "RHI";
-        app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        app_info.apiVersion = VK_API_VERSION_1_0;
+namespace rhi {
 
-        VkInstanceCreateInfo create_info{};
-        create_info.sType =
-            VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        create_info.pApplicationInfo = &app_info;
+    std::vector<const char*> getRequiredExtensions() {
+        uint32_t glfwExtensionCount = 0;
 
-        VkResult result = vkCreateInstance(
-            &create_info,
-            nullptr,
-            &instance
+        const char** glfwExtensions =
+            glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+        if (glfwExtensions == nullptr) {
+            return {};
+        }
+
+        std::vector<const char*> extensions(
+            glfwExtensions,
+            glfwExtensions + glfwExtensionCount
         );
 
-        if (result != VK_SUCCESS)
-        {
-            instance = VK_NULL_HANDLE;
+        if (enableValidationLayers) {
+            extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        }
+
+        return extensions;
+    }
+
+    bool checkValidationLayerSupport() {
+        uint32_t layerCount = 0;
+
+        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+
+        std::vector<VkLayerProperties> availableLayers(layerCount);
+
+        vkEnumerateInstanceLayerProperties(
+            &layerCount,
+            availableLayers.data()
+        );
+
+        for (const char* layerName : validationLayers) {
+            bool layerFound = false;
+
+            for (const auto& layerProperties : availableLayers) {
+                if (std::strcmp(
+                    layerName,
+                    layerProperties.layerName
+                ) == 0) {
+                    layerFound = true;
+                    break;
+                }
+            }
+
+            if (!layerFound) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    namespace {
+        Instance instance;
+    }
+
+    Result initialize_vulkan() {
+        if (enableValidationLayers &&
+            !checkValidationLayerSupport()) {
             return Result::InitializationFailed;
         }
+
+        auto extensions = getRequiredExtensions();
+
+        if (extensions.empty()) {
+            return Result::InitializationFailed;
+        }
+
+        std::vector<const char*> layers;
+
+        if (enableValidationLayers) {
+            layers = validationLayers;
+        }
+
+        if (instance.create(extensions, layers) != VK_SUCCESS) {
+            return Result::InitializationFailed;
+        }
+
+        std::cout << "Sucessfully created VkInstance." << std::endl;
 
         return Result::Success;
     }
 
-    void shutdown_vulkan()
-    {
-        if (instance != VK_NULL_HANDLE)
-        {
-            vkDestroyInstance(instance, nullptr);
-            instance = VK_NULL_HANDLE;
-        }
+    void shutdown_vulkan() {
+        instance.destroy();
     }
+
 }

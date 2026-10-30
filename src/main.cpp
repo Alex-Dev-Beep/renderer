@@ -13,11 +13,11 @@ int main()
 
     if (result != rhi::Result::Success)
     {
-        std::cerr << "Failed to initialize RHI\n";
+        std::cerr << "Failed to initialize RHI" << std::endl;
         return 1;
     }
 
-    std::cout << "RHI initialized successfully\n";
+    std::cout << "RHI initialized successfully." << std::endl;
 
     while (!glfwWindowShouldClose(Window::window))
     {
